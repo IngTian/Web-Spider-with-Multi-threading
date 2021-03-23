@@ -1,2 +1,8 @@
+# Ignore all virtual environments.
 venv/
+
+# Ignore IntelliJ-specific files.
 .idea/
+
+# Ignore MacOS-specific files.
+.DS_Store
