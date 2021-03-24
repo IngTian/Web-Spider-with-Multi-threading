@@ -1,4 +1,6 @@
 # Local imports.
+from time import sleep
+
 from spider.retry import Retry
 
 # Util imports.
@@ -166,3 +168,54 @@ def is_any_alive(spider_threads):
     """
     return any([spider_thread.spider.status == SpiderStatus.WORKING
                 for spider_thread in spider_threads])
+
+
+class SpiderThreadController:
+
+    def __init__(self,
+                 task_name="a_task",
+                 redis_host="",
+                 redis_port=6379,
+                 redis_password="",
+                 mongo_host="",
+                 mongo_port=27017,
+                 source_url="",
+                 thread_number=10
+                 ):
+        self.__task_name = task_name
+        self.__redis_host = redis_host
+        self.__redis_port = redis_port
+        self.__redis_password = redis_password
+        self.__mongo_host = mongo_host
+        self.__mongo_port = mongo_port
+        self.__source_url = source_url
+        self.__thread_number = thread_number
+
+    def multi_thread_download(self):
+
+        database_connect = redis.Redis(
+            host=self.__redis_host,
+            port=self.__redis_port,
+            password=self.__redis_password
+        )
+        if not database_connect.exists(self.__task_name):
+            database_connect.rpush(self.__task_name, self.__source_url)
+
+        spider_threads = [SpiderThread(
+            "spider_thread-%d" % i,
+            Spider(),
+            redis_host=self.__redis_host,
+            redis_port=self.__redis_port,
+            redis_password=self.__redis_password,
+            mongo_host=self.__mongo_host,
+            mongo_port=self.__mongo_port,
+            task_name=self.__task_name
+        ) for i in range(self.__thread_number)]
+
+        for spider_thread in spider_threads:
+            spider_thread.start()
+
+        while database_connect.exists('a_task') or is_any_alive(spider_threads):
+            sleep(5)
+
+        return
